@@ -68,6 +68,7 @@ rec3 <- glm(recidivism ~  electronicMonitoring + mostSeriousCrime + age + ageSqu
 
 coeftest(rec3, vcov. = vcovHC, type = "HC1")
 
+<<<<<<< HEAD
 rec4 <- lm(recidivism ~ electronicMonitoring + mostSeriousCrime + age + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict)
 coeftest(rec4, vcov. = vcovHC, type = "HC1")
 # Variance inflation Factor 
@@ -78,6 +79,12 @@ rec4 <- vif(lm(recidivism ~ electronicMonitoring + mostSeriousCrime + age + ageS
 
 
 rec5 <- lm(recidivism ~ electronicMonitoring +judgeEverUsedEM + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, data = subset1)
+=======
+rec4 <- lm(recidivism ~ electronicMonitoring + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, data = Subs1)
+coeftest(rec4, vcov. = vcovHC, type = "HC1")
+
+rec5 <- lm(recidivism ~ electronicMonitoring + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, data = Subs1)
+>>>>>>> 98ae8c756591134f6b73d53f442e9e830df11ab8
 coeftest(rec5, vcov. = vcovHC, type = "HC1")
 
 # Table 5
