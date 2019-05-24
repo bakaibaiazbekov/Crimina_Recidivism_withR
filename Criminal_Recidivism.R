@@ -75,7 +75,7 @@ coeftest(rec4, vcov. = vcovHC, type = "HC1")
 # 1 - 5 = moderatelz correlated 
 # 5 > highly correlated 
 rec4 <- vif(lm(recidivism ~ electronicMonitoring + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict))
-rec4
+
 
 rec5 <- lm(recidivism ~ electronicMonitoring +judgeEverUsedEM + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, data = subset1)
 coeftest(rec5, vcov. = vcovHC, type = "HC1")
