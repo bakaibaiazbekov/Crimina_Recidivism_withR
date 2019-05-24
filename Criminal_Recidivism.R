@@ -1,9 +1,6 @@
-library(data.table)
 library(tidyverse)
-library(lubridate)
-library(scales)
 library(corrplot)
-library(DT)
+
 
 # Missing Data
 miss_pct <- map_dbl(CR, function(x) { round((sum(is.na(x)) / length(x)) * 100, 1) })
@@ -112,6 +109,38 @@ summary(rec_ivreg2)$r.squared
 rec_ivreg3 <- ivreg(recidivism ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + electronicMonitoring | electronicMonitoring + percJudgeSentToEM + judgeAlreadyUsedEM, data = subset1)
 
 coeftest(rec_ivreg3, vcov = vcovHC, type = "HC1")
+
+# subset data for year 1998  and year 2007
+rec1998 <- subset(subset1, yearOfImprisonment == "1998")
+
+rec2007 <- subset(subset1, yearOfImprisonment == "2007")
+
+# define the rec difference 
+
+rec_diff <- rec1998$recidivism - rec2007$recidivism 
+
+elect_diff <- rec1998$electronicMonitoring - rec2007$electronicMonitoring
+
+percJudgeSentToEM_diff <- rec1998$percJudgeSentToEM - rec2007$percJudgeSentToEM
+
+# estimate the models
+
+rec_ivreg_diff1 <- ivreg(rec_diff ~ elect_diff | elect_diff + percJudgeSentToEM_diff) 
+coeftest(rec_ivreg_diff1, vcov = vcovHC, type = "HC1")
+
+
+# first stage regressions 
+
+mod_relevance1 <- lm(elect_diff ~ percJudgeSentToEM_diff)
+
+
+# check instrument relevance for model (1)
+
+linearHypothesis(mod_relevance1, "percJudgeSentToEM_diff = 0", vcov = vcovHC, type = "HC1")
+
+
+
+
 
 
 
