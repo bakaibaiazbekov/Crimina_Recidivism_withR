@@ -3,7 +3,7 @@ library(corrplot)
 
 
 # Missing Data
-miss_pct <- map_dbl(CR, function(x) { round((sum(is.na(x)) / length(x)) * 100, 1) })
+miss_pct <- map_dbl(subset, function(x) { round((sum(is.na(x)) / length(x)) * 100, 1) })
 
 miss_pct <- miss_pct[miss_pct > 0]
 
@@ -68,7 +68,6 @@ rec3 <- glm(recidivism ~  electronicMonitoring + mostSeriousCrime + age + ageSqu
 
 coeftest(rec3, vcov. = vcovHC, type = "HC1")
 
-<<<<<<< HEAD
 rec4 <- lm(recidivism ~ electronicMonitoring + mostSeriousCrime + age + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict)
 coeftest(rec4, vcov. = vcovHC, type = "HC1")
 # Variance inflation Factor 
@@ -77,15 +76,11 @@ coeftest(rec4, vcov. = vcovHC, type = "HC1")
 # 5 > highly correlated 
 rec4 <- vif(lm(recidivism ~ electronicMonitoring + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict))
 
-
 rec5 <- lm(recidivism ~ electronicMonitoring +judgeEverUsedEM + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, data = subset1)
-=======
-rec4 <- lm(recidivism ~ electronicMonitoring + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, data = Subs1)
-coeftest(rec4, vcov. = vcovHC, type = "HC1")
-
-rec5 <- lm(recidivism ~ electronicMonitoring + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, data = Subs1)
->>>>>>> 98ae8c756591134f6b73d53f442e9e830df11ab8
 coeftest(rec5, vcov. = vcovHC, type = "HC1")
+
+
+
 
 # Table 5
 
@@ -152,10 +147,82 @@ mod_relevance1 <- lm(elect_diff ~ percJudgeSentToEM_diff)
 linearHypothesis(mod_relevance1, "percJudgeSentToEM_diff = 0", vcov = vcovHC, type = "HC1")
 
 
+-------------------------------------------------------------------------------------------------------
+# Total crimes by week days 
+# Convert the Date variable to a format that R will recognize:
+CR$Date = strptime(CR$date, format="%Y-%m-%d")
+
+# Extract the hour and the day of the week:
+CR$Weekday = weekdays(CR$Date)
 
 
+# Create a simple line plot - need the total number of crimes on each day of the week. We can get this information by creating a table:
+table(CR$Weekday)
+
+# Save this table as a data frame:
+WeekdayCounts = as.data.frame(table(CR$Weekday))
+
+str(WeekdayCounts) 
 
 
+# Load the ggplot2 library:
+library(ggplot2)
+
+# Create our plot
+ggplot(WeekdayCounts, aes(x=Var1, y=Freq)) + geom_line(aes(group=1))  
+
+# Make the "Var1" variable an ORDERED factor variable
+WeekdayCounts$Var1 = factor(WeekdayCounts$Var1, ordered=TRUE, levels=c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday","Saturday"))
+
+# Try again:
+ggplot(WeekdayCounts, aes(x=Var1, y=Freq)) + geom_line(aes(group=1))
+
+# Change our x and y labels:
+ggplot(WeekdayCounts, aes(x=Var1, y=Freq)) + geom_line(aes(group=1)) + xlab("Day of the Week") + ylab("Total Crimes")
+
+# Change our x and y labels:
+ggplot(WeekdayCounts, aes(x=Var1, y=Freq)) + geom_tile(aes(fill = Freq)) + scale_fill_gradient(name = "Total crimes") + theme(axis.title.y = element_blank()) 
+
+-------------------------------------------------------------------------------------
+# CART Model
+# Split the data
+library(caTools)
+
+# Install rpart library
+install.packages("rpart")
+library(rpart)
+install.packages("rpart.plot")
+library(rpart.plot)
+
+set.seed(3000)
+spl = sample.split(subset1$recidivism, SplitRatio = 0.7)
+Train = subset(subset1, spl==TRUE)
+Test = subset(subset1, spl==FALSE)
+
+# extract year 
+CR$year <- gsub('([-][0-9]{2}[-][0-9]{2})$', '', CR$entryDate)
+# CART model
+Tree = rpart(recidivism ~ electronicMonitoring + numberPreviousImprisonments + age + year , data = Train, method="class", minbucket=10)
+
+prp(Tree)
+
+# Make predictions
+PredictCART = predict(Tree, newdata = Test, type = "class")
+table(Test$recidivism, PredictCART)
+(356+9)/(356+10+83+9)
+
+# ROC curve
+library(ROCR)
+
+PredictROC = predict(Tree, newdata = Test)
+PredictROC
+
+pred = prediction(PredictROC[,2], Test$recidivism)
+perf = performance(pred, "tpr", "fpr")
+plot(perf)
+
+
+mean <- aggregate(subset, list(subset$recidivism), mean)
 
 
 
