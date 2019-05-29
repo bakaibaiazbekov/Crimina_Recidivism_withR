@@ -184,8 +184,13 @@ ggplot(WeekdayCounts, aes(x=Var1, y=Freq)) + geom_line(aes(group=1)) + xlab("Day
 ggplot(WeekdayCounts, aes(x=Var1, y=Freq)) + geom_tile(aes(fill = Freq)) + scale_fill_gradient(name = "Total crimes") + theme(axis.title.y = element_blank()) 
 
 -------------------------------------------------------------------------------------
+attach(subset)
+subset1 <- data.frame(electronicMonitoring, recidivism, numberPreviousImprisonments, age, year, homicideDummy, attemptedHomicideDummy, sexualOffensesDummy, otherSeriousCrimesDummy, aggravatedRobberyDummy, attemptedAggravatedRobberyDummy, robberyDummy, attemptedRobberyDummy, possessionOfFirearmsDummy, larcenyDummy, otherMinorCrimesDummy)
+  
+  
 # CART Model
 # Split the data
+install.packages("caTools")
 library(caTools)
 
 # Install rpart library
@@ -200,18 +205,22 @@ Train = subset(subset1, spl==TRUE)
 Test = subset(subset1, spl==FALSE)
 
 # extract year 
-CR$year <- gsub('([-][0-9]{2}[-][0-9]{2})$', '', CR$entryDate)
+subset$year <- gsub('([-][0-9]{2}[-][0-9]{2})$', '', subset$entryDate)
 # CART model
-Tree = rpart(recidivism ~ electronicMonitoring + numberPreviousImprisonments + age + year , data = Train, method="class", minbucket=10)
+Tree = rpart(recidivism ~ electronicMonitoring + numberPreviousImprisonments + age + year + homicideDummy + attemptedHomicideDummy + sexualOffensesDummy + otherSeriousCrimesDummy + aggravatedRobberyDummy + attemptedAggravatedRobberyDummy + robberyDummy + attemptedRobberyDummy + possessionOfFirearmsDummy + larcenyDummy + otherMinorCrimesDummy, 
+             data = Train, 
+             method="class", 
+             minbucket=15)
 
 prp(Tree)
 
 # Make predictions
 PredictCART = predict(Tree, newdata = Test, type = "class")
 table(Test$recidivism, PredictCART)
-(356+9)/(356+10+83+9)
+(363+6)/(363+3+86+6)
 
 # ROC curve
+install.packages("ROCR")
 library(ROCR)
 
 PredictROC = predict(Tree, newdata = Test)
@@ -220,6 +229,50 @@ PredictROC
 pred = prediction(PredictROC[,2], Test$recidivism)
 perf = performance(pred, "tpr", "fpr")
 plot(perf)
+
+install.packages("randomForest")
+library(randomForest)
+
+# Convert outcome to factor
+Train$recidivism = as.factor(Train$recidivism)
+Test$recidivism = as.factor(Test$recidivism)
+
+# Build random forest model
+RF = randomForest(recidivism ~ electronicMonitoring + numberPreviousImprisonments + age + year + homicideDummy + attemptedHomicideDummy + sexualOffensesDummy + otherSeriousCrimesDummy + aggravatedRobberyDummy + attemptedAggravatedRobberyDummy + robberyDummy + attemptedRobberyDummy + possessionOfFirearmsDummy + larcenyDummy + otherMinorCrimesDummy, 
+             data = Train, 
+             ntree = 200, 
+             nodesize = 15)
+
+
+# Make predictions
+PredictForest = predict(RF, newdata = Test)
+table(Test$recidivism, PredictForest)
+(364+7)/(364+2+85+7)
+
+
+# Install cross-validation packages
+install.packages("caret")
+library(caret)
+install.packages("e1071")
+library(e1071)
+
+# Define cross-validation experiment
+numFolds = trainControl( method = "cv", number = 10 )
+cpGrid = expand.grid( .cp = seq(0.01,0.5,0.01)) 
+
+# Perform the cross validation
+train(recidivism ~ electronicMonitoring + numberPreviousImprisonments + age + year + homicideDummy + attemptedHomicideDummy + sexualOffensesDummy + otherSeriousCrimesDummy + aggravatedRobberyDummy + attemptedAggravatedRobberyDummy + robberyDummy + attemptedRobberyDummy + possessionOfFirearmsDummy + larcenyDummy + otherMinorCrimesDummy, data = Train, method = "rpart", trControl = numFolds, tuneGrid = cpGrid )
+
+# Create a new CART model
+TreeCV = rpart(recidivism ~ electronicMonitoring + numberPreviousImprisonments + age + year + homicideDummy + attemptedHomicideDummy + sexualOffensesDummy + otherSeriousCrimesDummy + aggravatedRobberyDummy + attemptedAggravatedRobberyDummy + robberyDummy + attemptedRobberyDummy + possessionOfFirearmsDummy + larcenyDummy + otherMinorCrimesDummy, data = Train, method="class", cp = 0.02)
+
+# Make predictions
+PredictCV = predict(TreeCV, newdata = Test, type = "class")
+table(Test$recidivism, PredictCV)
+(363+6)/(363+3+86+6)
+
+#
+
 
 
 mean <- aggregate(subset, list(subset$recidivism), mean)
