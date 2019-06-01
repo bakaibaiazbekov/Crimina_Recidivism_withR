@@ -20,6 +20,7 @@ corrplot(cor(CR[, ..internal_chars], use="complete.obs"))
 
 library(AER)
 attach(judge10)
+library(stargazer)
 
 # judge offender > 10 
 judge10 <- subset(CR, offendersPerJudge > 9)
@@ -45,30 +46,89 @@ EM5 <- lm(electronicMonitoring ~ percJudgeSentToEM + judgeAlreadyUsedEM + mostSe
 
 coeftest(EM5, vcov = vcovHC, type = "HC1")
 
+# gather robust standard errors in a list
+rob_se <- list(sqrt(diag(vcovHC(EM1, type = "HC1"))),
+               sqrt(diag(vcovHC(EM2, type = "HC1"))),
+               sqrt(diag(vcovHC(EM3, type = "HC1"))),
+               sqrt(diag(vcovHC(EM4, type = "HC1"))),
+               sqrt(diag(vcovHC(EM5, type = "HC1"))))
+
+# generate a LaTeX table using stargazer
+stargazer(EM1, EM2, EM3, EM4, EM5,
+          se = rob_se,
+          digits = 3,
+          header = F,
+          column.labels = c("(I)", "(II)", "(III)", "(IV)", "(V)"))
+
+
 # Table 3 
-judgeEM <- lm(percJudgeSentToEM ~ lowHighEMRateDummy + judicialDistrict)
-coeftest(judgeEM, vcov. = vcovHC, type = "HC1")
+#column 1
+highEM <- subset(judge10, (!is.na(judge10$lowHighEMRateDummy)) & ((judge10$lowHighEMRateDummy == "1")))
+summary(lowEM$age)
+
+lowEM <- subset(judge10,(!is.na(judge10$lowHighEMRateDummy)) & ((judge10$lowHighEMRateDummy == "0")))
+summary(highEM$age)
+
 
 # Table 4
 # omit NAs in recidivism
-subset <-  CR[complete.cases(CR$recidivism), ] 
-
+subset <-  judge10[complete.cases(judge10$recidivism), ] 
+attach(subset)
+# column 1
 rec1 <- lm(recidivism ~ electronicMonitoring, data = subset)
-coeftest(rec1, vcov. = vcovHC, type = "HC1")
+coeftest(rec1, vcov. = vcovHC, type = "HC1", cluster = "group")
+# column 2
+rec2 <- lm(recidivism ~ electronicMonitoring + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment +`_IyearOfImp_1999` +  `_IyearOfImp_2000`+`_IyearOfImp_2001`+`_IyearOfImp_2002`+`_IyearOfImp_2003` +`_IyearOfImp_2004` +`_IyearOfImp_2005`+`_IyearOfImp_2006` + `_IyearOfImp_2007`+ judicialDistrict, data = subset)
+coeftest(rec2, vcov. = vcovHC, type = "HC1", cluster = "group")
+# column 3
+subset2 <-  CR[complete.cases(CR$recidivism), ] 
 
-rec2 <- lm(recidivism ~ electronicMonitoring + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, data = subset)
-coeftest(rec2, vcov. = vcovHC, type = "HC1")
+df3 <- subset2[!(subset2$judicialDistrict == "NECOCHEA"),]
+# estimate the simple probit model
+rec3 <- glm(recidivism ~  electronicMonitoring + `_ImostSerio_2` + `_ImostSerio_3`+ `_ImostSerio_4`+ `_ImostSerio_5`+ `_ImostSerio_6`+ `_ImostSerio_7`+ `_ImostSerio_8`+ `_ImostSerio_9`+ `_ImostSerio_10`+ `_ImostSerio_11` + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment+`_IyearOfImp_1999` +  `_IyearOfImp_2000`+`_IyearOfImp_2001`+`_IyearOfImp_2002`+`_IyearOfImp_2003` +`_IyearOfImp_2004` +`_IyearOfImp_2005`+`_IyearOfImp_2006` + `_IyearOfImp_2007` + `_IjudicialD_2`+ `_IjudicialD_3`+ `_IjudicialD_4`+ `_IjudicialD_5`+ `_IjudicialD_6`+ `_IjudicialD_7`+ `_IjudicialD_8`+ `_IjudicialD_9`+ `_IjudicialD_10`+ `_IjudicialD_11`+ `_IjudicialD_12`+ `_IjudicialD_13`+ `_IjudicialD_14`+ `_IjudicialD_15`+ `_IjudicialD_16`+ `_IjudicialD_17` + `_IjudicialD_18` , 
+            family = binomial(link = "probit"), 
+            data = df3)
+
+coeftest(rec3, vcov. = vcovHC, type = "HC1", cluster = "group")
+
+mfxboot <- function(modform,dist,data,boot=1000,digits=3){
+  x <- glm(modform, family=binomial(link=dist),data)
+  # get marginal effects
+  pdf <- ifelse(dist=="probit",
+                mean(dnorm(predict(x, type = "link"))),
+                mean(dlogis(predict(x, type = "link"))))
+  marginal.effects <- pdf*coef(x)
+  # start bootstrap
+  bootvals <- matrix(rep(NA,boot*length(coef(x))), nrow=boot)
+  set.seed(1111)
+  for(i in 1:boot){
+    samp1 <- data[sample(1:dim(data)[1],replace=T,dim(data)[1]),]
+    x1 <- glm(modform, family=binomial(link=dist),samp1)
+    pdf1 <- ifelse(dist=="probit",
+                   mean(dnorm(predict(x1, type = "link"))),
+                   mean(dlogis(predict(x1, type = "link"))))
+    bootvals[i,] <- pdf1*coef(x1)
+  }
+  res <- cbind(marginal.effects,apply(bootvals,2,sd),marginal.effects/apply(bootvals,2,sd))
+  if(names(x$coefficients[1])=="(Intercept)"){
+    res1 <- res[2:nrow(res),]
+    res2 <- matrix(as.numeric(sprintf(paste("%.",paste(digits,"f",sep=""),sep=""),res1)),nrow=dim(res1)[1])     
+    rownames(res2) <- rownames(res1)
+  } else {
+    res2 <- matrix(as.numeric(sprintf(paste("%.",paste(digits,"f",sep=""),sep="")),nrow=dim(res)[1]))
+    rownames(res2) <- rownames(res)
+  }
+  colnames(res2) <- c("marginal.effect","standard.error","z.ratio")  
+  return(res2)
+}
+mfx1 <- mfxboot(modform,"probit",df3)
+summary(mfx1)
+
+# Column 4
 
 Subs1<-subset(CR, (!is.na(CR$recidivism)) & ((CR$mostSeriousCrime == "05 - Aggravated robbery")))
 
-# estimate the simple probit model
-rec3 <- glm(recidivism ~  electronicMonitoring + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, 
-            family = binomial(link = "probit"), 
-            data = subset)
-
-coeftest(rec3, vcov. = vcovHC, type = "HC1")
-
-rec4 <- lm(recidivism ~ electronicMonitoring + mostSeriousCrime + age + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict)
+rec4 <- lm(recidivism ~ electronicMonitoring + mostSeriousCrime + age + argentine + numberPreviousImprisonments + yearOfImprisonment + `_IyearOfImp_1999` +  `_IyearOfImp_2000`+`_IyearOfImp_2001`+`_IyearOfImp_2002`+`_IyearOfImp_2003` +`_IyearOfImp_2004` +`_IyearOfImp_2005`+`_IyearOfImp_2006` + `_IyearOfImp_2007` + judicialDistrict)
 coeftest(rec4, vcov. = vcovHC, type = "HC1")
 # Variance inflation Factor 
 # 1 = not correlated
@@ -76,8 +136,32 @@ coeftest(rec4, vcov. = vcovHC, type = "HC1")
 # 5 > highly correlated 
 rec4 <- vif(lm(recidivism ~ electronicMonitoring + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict))
 
-rec5 <- lm(recidivism ~ electronicMonitoring +judgeEverUsedEM + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, data = subset1)
-coeftest(rec5, vcov. = vcovHC, type = "HC1")
+# Column 5 
+ df5 <- subset[!(subset$judicialDistrict == "NECOCHEA") & (subset$yearOfImprisonment == "1998") & (subset$mostSeriousCrime == "01 - Homicide"), ]
+
+df5 <- subset%>% filter(!(judicialDistrict != "NECOCHEA" & mostSeriousCrime != "01 - Homicide" & yearOfImprisonment != "1998"))
+
+df5 <- subset[!(subset$judicialDistrict == "AZUL"),]
+df5 <- df5[!(df5$yearOfImprisonment == "1998"),]
+
+df5 <- df5[!(df5$mostSeriousCrime == "01 - Homicide"),]
+
+rec5 <- lm(recidivism ~ electronicMonitoring +judgeEverUsedEM + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + `_IyearOfImp_1999` +  `_IyearOfImp_2000`+`_IyearOfImp_2001`+`_IyearOfImp_2002`+`_IyearOfImp_2003` +`_IyearOfImp_2004` +`_IyearOfImp_2005`+`_IyearOfImp_2006` + `_IyearOfImp_2007` + `_IjudicialD_2`+ `_IjudicialD_3`+ `_IjudicialD_4`+ `_IjudicialD_5`+ `_IjudicialD_6`+ `_IjudicialD_7`+ `_IjudicialD_8`+ `_IjudicialD_9`+ `_IjudicialD_10`+ `_IjudicialD_11`+ `_IjudicialD_12`+ `_IjudicialD_13`+ `_IjudicialD_14`+ `_IjudicialD_15`+ `_IjudicialD_16`+ `_IjudicialD_17` + `_IjudicialD_18` , data = subset)
+coeftest(rec5, vcov. = vcovHC, type = "HC1", cluster = judicialDistrict)
+
+# gather robust standard errors in a list
+rob_se <- list(sqrt(diag(vcovHC(rec1, type = "HC1"))),
+               sqrt(diag(vcovHC(rec2, type = "HC1"))),
+               sqrt(diag(vcovHC(rec3, type = "HC1"))),
+               sqrt(diag(vcovHC(rec4, type = "HC1"))),
+               sqrt(diag(vcovHC(rec5, type = "HC1"))))
+
+# generate a LaTeX table using stargazer
+stargazer(rec1, rec2, rec3, rec4, rec5,
+          se = rob_se,
+          digits = 3,
+          header = F,
+          column.labels = c("(I)", "(II)", "(III)", "(IV)", "(V)"))
 
 
 
@@ -88,7 +172,7 @@ coeftest(rec5, vcov. = vcovHC, type = "HC1")
 subset1 <-  judge10[complete.cases(judge10$recidivism), ] 
 
 # perform the first stage regression
-EM_s1 <- lm(electronicMonitoring ~ court, data = CR, na.action=na.exclude)
+EM_s1 <- lm(electronicMonitoring ~ court, data = subset)
 
 coeftest(EM_s1, vcov = vcovHC, type = "HC1")
 
@@ -102,11 +186,12 @@ coeftest(EM_s2, vcov = vcovHC)
 # inspect the R^2 of the first stage regression
 summary(EM_s1)$r.squared
 
-rec_ivreg1 <- ivreg(recidivism ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + electronicMonitoring | electronicMonitoring + court, data = subset1)
+# IV reg column 1
+rec_ivreg1 <- ivreg(recidivism ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + electronicMonitoring |electronicMonitoring + court, data = subset)
 
 coeftest(rec_ivreg1, vcov = vcovHC, type = "HC1")
 
-rec_ivreg2 <- ivreg(recidivism ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + electronicMonitoring | electronicMonitoring + percJudgeSentToEM, data = subset1)
+rec_ivreg2 <- ivreg(recidivism ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + electronicMonitoring | electronicMonitoring + percJudgeSentToEM, data = subset)
 
 coeftest(rec_ivreg2, vcov = vcovHC, type = "HC1")
 
@@ -117,34 +202,6 @@ summary(rec_ivreg2)$r.squared
 rec_ivreg3 <- ivreg(recidivism ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + electronicMonitoring | electronicMonitoring + percJudgeSentToEM + judgeAlreadyUsedEM, data = subset1)
 
 coeftest(rec_ivreg3, vcov = vcovHC, type = "HC1")
-
-# subset data for year 1998  and year 2007
-rec1998 <- subset(subset1, yearOfImprisonment == "1998")
-
-rec2007 <- subset(subset1, yearOfImprisonment == "2007")
-
-# define the rec difference 
-
-rec_diff <- rec1998$recidivism - rec2007$recidivism 
-
-elect_diff <- rec1998$electronicMonitoring - rec2007$electronicMonitoring
-
-percJudgeSentToEM_diff <- rec1998$percJudgeSentToEM - rec2007$percJudgeSentToEM
-
-# estimate the models
-
-rec_ivreg_diff1 <- ivreg(rec_diff ~ elect_diff | elect_diff + percJudgeSentToEM_diff) 
-coeftest(rec_ivreg_diff1, vcov = vcovHC, type = "HC1")
-
-
-# first stage regressions 
-
-mod_relevance1 <- lm(elect_diff ~ percJudgeSentToEM_diff)
-
-
-# check instrument relevance for model (1)
-
-linearHypothesis(mod_relevance1, "percJudgeSentToEM_diff = 0", vcov = vcovHC, type = "HC1")
 
 
 -------------------------------------------------------------------------------------------------------
