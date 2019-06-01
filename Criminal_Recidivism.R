@@ -85,7 +85,7 @@ subset2 <-  CR[complete.cases(CR$recidivism), ]
 
 df3 <- subset2[!(subset2$judicialDistrict == "NECOCHEA"),]
 # estimate the simple probit model
-rec3 <- glm(recidivism ~  electronicMonitoring + `_ImostSerio_2` + `_ImostSerio_3`+ `_ImostSerio_4`+ `_ImostSerio_5`+ `_ImostSerio_6`+ `_ImostSerio_7`+ `_ImostSerio_8`+ `_ImostSerio_9`+ `_ImostSerio_10`+ `_ImostSerio_11` + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment+`_IyearOfImp_1999` +  `_IyearOfImp_2000`+`_IyearOfImp_2001`+`_IyearOfImp_2002`+`_IyearOfImp_2003` +`_IyearOfImp_2004` +`_IyearOfImp_2005`+`_IyearOfImp_2006` + `_IyearOfImp_2007` + `_IjudicialD_2`+ `_IjudicialD_3`+ `_IjudicialD_4`+ `_IjudicialD_5`+ `_IjudicialD_6`+ `_IjudicialD_7`+ `_IjudicialD_8`+ `_IjudicialD_9`+ `_IjudicialD_10`+ `_IjudicialD_11`+ `_IjudicialD_12`+ `_IjudicialD_13`+ `_IjudicialD_14`+ `_IjudicialD_15`+ `_IjudicialD_16`+ `_IjudicialD_17` + `_IjudicialD_18` , 
+rec3 <- glm(recidivism ~  electronicMonitoring + `_ImostSerio_2` + `_ImostSerio_3`+ `_ImostSerio_4`+ `_ImostSerio_5`+ `_ImostSerio_6`+ `_ImostSerio_7`+ `_ImostSerio_8`+ `_ImostSerio_9`+ `_ImostSerio_10`+ `_ImostSerio_11` + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment+`_IyearOfImp_1999` +  `_IyearOfImp_2000`+`_IyearOfImp_2001`+`_IyearOfImp_2002`+`_IyearOfImp_2003` +`_IyearOfImp_2004` +`_IyearOfImp_2005`+`_IyearOfImp_2006` + `_IyearOfImp_2007` , 
             family = binomial(link = "probit"), 
             data = df3)
 
@@ -146,7 +146,7 @@ df5 <- df5[!(df5$yearOfImprisonment == "1998"),]
 
 df5 <- df5[!(df5$mostSeriousCrime == "01 - Homicide"),]
 
-rec5 <- lm(recidivism ~ electronicMonitoring +judgeEverUsedEM + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + `_IyearOfImp_1999` +  `_IyearOfImp_2000`+`_IyearOfImp_2001`+`_IyearOfImp_2002`+`_IyearOfImp_2003` +`_IyearOfImp_2004` +`_IyearOfImp_2005`+`_IyearOfImp_2006` + `_IyearOfImp_2007` + `_IjudicialD_2`+ `_IjudicialD_3`+ `_IjudicialD_4`+ `_IjudicialD_5`+ `_IjudicialD_6`+ `_IjudicialD_7`+ `_IjudicialD_8`+ `_IjudicialD_9`+ `_IjudicialD_10`+ `_IjudicialD_11`+ `_IjudicialD_12`+ `_IjudicialD_13`+ `_IjudicialD_14`+ `_IjudicialD_15`+ `_IjudicialD_16`+ `_IjudicialD_17` + `_IjudicialD_18` , data = subset)
+rec5 <- lm(recidivism ~ electronicMonitoring +judgeEverUsedEM + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + `_IyearOfImp_1999` +  `_IyearOfImp_2000`+`_IyearOfImp_2001`+`_IyearOfImp_2002`+`_IyearOfImp_2003` +`_IyearOfImp_2004` +`_IyearOfImp_2005`+`_IyearOfImp_2006` + `_IyearOfImp_2007` , data = subset)
 coeftest(rec5, vcov. = vcovHC, type = "HC1", cluster = judicialDistrict)
 
 # gather robust standard errors in a list
