@@ -20,6 +20,7 @@ corrplot(cor(CR[, ..internal_chars], use="complete.obs"))
 
 library(AER)
 attach(judge10)
+attach(CR)
 library(stargazer)
 
 # judge offender > 10 
@@ -137,14 +138,14 @@ coeftest(rec4, vcov. = vcovHC, type = "HC1")
 rec4 <- vif(lm(recidivism ~ electronicMonitoring + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict))
 
 # Column 5 
- df5 <- subset[!(subset$judicialDistrict == "NECOCHEA") & (subset$yearOfImprisonment == "1998") & (subset$mostSeriousCrime == "01 - Homicide"), ]
+ df5 <- subset[!(subset$judicialDistrict == "AZUL") & (subset$yearOfImprisonment == "1998") & (subset$mostSeriousCrime == "01 - Homicide"), ]
 
 df5 <- subset%>% filter(!(judicialDistrict != "NECOCHEA" & mostSeriousCrime != "01 - Homicide" & yearOfImprisonment != "1998"))
 
 df5 <- subset[!(subset$judicialDistrict == "AZUL"),]
 df5 <- df5[!(df5$yearOfImprisonment == "1998"),]
-
 df5 <- df5[!(df5$mostSeriousCrime == "01 - Homicide"),]
+
 
 rec5 <- lm(recidivism ~ electronicMonitoring +judgeEverUsedEM + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + `_IyearOfImp_1999` +  `_IyearOfImp_2000`+`_IyearOfImp_2001`+`_IyearOfImp_2002`+`_IyearOfImp_2003` +`_IyearOfImp_2004` +`_IyearOfImp_2005`+`_IyearOfImp_2006` + `_IyearOfImp_2007` , data = subset)
 coeftest(rec5, vcov. = vcovHC, type = "HC1", cluster = judicialDistrict)
@@ -169,10 +170,10 @@ stargazer(rec1, rec2, rec3, rec4, rec5,
 # Table 5
 
 # estimate the model
-subset1 <-  judge10[complete.cases(judge10$recidivism), ] 
+#subset1 <-  judge10[complete.cases(judge10$recidivism), ] 
 
 # perform the first stage regression
-EM_s1 <- lm(electronicMonitoring ~ court, data = subset)
+EM_s1 <- lm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + court, data = subset)
 
 coeftest(EM_s1, vcov = vcovHC, type = "HC1")
 
@@ -180,29 +181,166 @@ coeftest(EM_s1, vcov = vcovHC, type = "HC1")
 EM1_pred <- EM_s1$fitted.values
 
 # run the stage 2 regression
-EM_s2 <- lm(subset1$recidivism ~ EM1_pred)
+EM_s2 <- lm(recidivism ~ EM1_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict)
 coeftest(EM_s2, vcov = vcovHC)
-
+-0.11444 
 # inspect the R^2 of the first stage regression
 summary(EM_s1)$r.squared
 
-# IV reg column 1
-rec_ivreg1 <- ivreg(recidivism ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + electronicMonitoring |electronicMonitoring + court, data = subset)
+# 1 stage column 2
+EM_s12 <- lm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + percJudgeSentToEM, data = subset)
+coeftest(EM_s12, vcov = vcovHC, type = "HC1")
 
-coeftest(rec_ivreg1, vcov = vcovHC, type = "HC1")
+# store the predicted values
+EM12_pred <- EM_s12$fitted.values
 
-rec_ivreg2 <- ivreg(recidivism ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + electronicMonitoring | electronicMonitoring + percJudgeSentToEM, data = subset)
+# run the stage 2 regression
+EM_s22 <- lm(recidivism ~ EM12_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict)
+coeftest(EM_s22, vcov = vcovHC)
+-0.13841
 
-coeftest(rec_ivreg2, vcov = vcovHC, type = "HC1")
+# 1 stage 
+#column 3
+EM_s13 <- lm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + percJudgeSentToEM + judgeAlreadyUsedEM, data = subset)
+coeftest(EM_s13, vcov = vcovHC, type = "HC1")
+
+# store the predicted values
+EM13_pred <- EM_s13$fitted.values
+
+# run the stage 2 regression
+EM_s23 <- lm(recidivism ~ EM13_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict)
+coeftest(EM_s23, vcov = vcovHC)
+-0.15842
+
+# Column 4
+subset_em1 <-subset[!(subset$judicialDistrict == "NECOCHEA"),]
+
+# first stage
+EM_s14 <- glm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + percJudgeSentToEM + judgeAlreadyUsedEM, family = binomial(link = "probit"), data = subset_em1)
+
+coeftest(EM_s14, vcov. = vcovHC, type = "HC1", cluster = "group")
+
+# store the predicted values
+EM14_pred <- EM_s14$fitted.values
+
+# run the stage 2 regression
+EM_s24 <- lm(recidivism ~ EM14_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, data = subset_em1)
+coeftest(EM_s24, vcov = vcovHC)
+-0.17417
+
+# 1 stage column 5
+EM_s15 <- lm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + largeSampleEstimate, data = subset)
+coeftest(EM_s15, vcov = vcovHC, type = "HC1")
+
+# store the predicted values
+EM15_pred <- EM_s15$fitted.values
+
+# run the stage 2 regression
+EM_s25 <- lm(recidivism ~ EM13_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict)
+coeftest(EM_s25, vcov = vcovHC)
+-0.15842
+-0.96417
 
 
-# inspect the R^2 of the first stage regression
-summary(rec_ivreg2)$r.squared
 
-rec_ivreg3 <- ivreg(recidivism ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + electronicMonitoring | electronicMonitoring + percJudgeSentToEM + judgeAlreadyUsedEM, data = subset1)
+# Column 4
+attach(subset)
+library(ivprobit)
 
-coeftest(rec_ivreg3, vcov = vcovHC, type = "HC1")
+year <- `_IyearOfImp_1999` +`_IyearOfImp_2000`+`_IyearOfImp_2001`+`_IyearOfImp_2002`+`_IyearOfImp_2003`+`_IyearOfImp_2004`+`_IyearOfImp_2005`+`_IyearOfImp_2006`+`_IyearOfImp_2007`
+most_serious_crime <- `_ImostSerio_2` + `_ImostSerio_3` + `_ImostSerio_4` + `_ImostSerio_5` + `_ImostSerio_6` + `_ImostSerio_7` + `_ImostSerio_8` + `_ImostSerio_9` + `_ImostSerio_10` + `_ImostSerio_11` 
+district <- `_IjudicialD_2` + `_IjudicialD_3` + `_IjudicialD_4` + `_IjudicialD_5` + `_IjudicialD_6` + `_IjudicialD_7` + `_IjudicialD_8` + `_IjudicialD_9` + `_IjudicialD_10` + `_IjudicialD_11` + `_IjudicialD_12` + `_IjudicialD_13` + `_IjudicialD_14` + `_IjudicialD_15` + `_IjudicialD_16` +`_IjudicialD_17` + `_IjudicialD_18` 
 
+
+# gather robust standard errors in a list
+rob_se <- list(sqrt(diag(vcovHC(EM_s2, type = "HC1"))),
+               sqrt(diag(vcovHC(EM_s22, type = "HC1"))),
+               sqrt(diag(vcovHC(EM_s23, type = "HC1"))),
+               sqrt(diag(vcovHC(EM_s24, type = "HC1"))),
+               sqrt(diag(vcovHC(EM_s25, type = "HC1"))))
+
+# generate table
+stargazer(EM_s2, EM_s22,EM_s23,EM_s24,EM_s25,
+          header = FALSE, 
+          type = "latex",
+          omit.table.layout = "n",
+          digits = 3, 
+          column.labels = c("IV: court", "IV: percJudgeSentToEM", "IVs: percJudgeSentToEM, judgeAlreadyUsedEM","IV probit", "IV: largeSampleEstimate" ),
+          dep.var.labels.include = FALSE,
+          dep.var.caption = "Dependent Variable: recidivism",
+          se = rob_se)
+
+# Table 6 
+
+# Column 1 
+df61 <- as.data.frame(subset)
+df61 <- df61[!is.na(df61$incomeProfession),]
+
+# 1 stage 
+EM_s161 <- lm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + incomeProfession + percJudgeSentToEM + judgeAlreadyUsedEM, data = df61)
+coeftest(EM_s161, vcov = vcovHC, type = "HC1")
+
+# store the predicted values
+EM161_pred <- EM_s161$fitted.values
+
+# run the stage 2 regression
+EM_s261 <- lm(recidivism ~ EM161_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + incomeProfession + judicialDistrict, data = df61)
+coeftest(EM_s261, vcov = vcovHC)
+-0.2434
+
+
+df62 <- subset[!is.na(subset$spouse),]
+# Column 2
+EM_s162 <- lm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + spouse + familyVisits + judicialDistrict + percJudgeSentToEM + judgeAlreadyUsedEM, data = df62)
+coeftest(EM_s162, vcov = vcovHC, type = "HC1")
+
+# store the predicted values
+EM162_pred <- EM_s162$fitted.values
+
+# run the stage 2 regression
+EM_s262 <- lm(recidivism ~ EM162_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + spouse + familyVisits + judicialDistrict, data = df62)
+coeftest(EM_s262, vcov = vcovHC)
+-0.15063
+
+
+# Column 3
+EM_s163 <- lm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + totalDetentionLength + totalDetentionLengthSquared + yearOfImprisonment + judicialDistrict + percJudgeSentToEM + judgeAlreadyUsedEM, data = subset)
+coeftest(EM_s163, vcov = vcovHC, type = "HC1")
+
+# store the predicted values
+EM163_pred <- EM_s163$fitted.values
+
+# run the stage 2 regression
+EM_s263 <- lm(recidivism ~ EM163_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + totalDetentionLength + totalDetentionLengthSquared + yearOfImprisonment + judicialDistrict, data = subset)
+coeftest(EM_s263, vcov = vcovHC)
+-0.15372
+
+df64 <- subset(subset6, offendersPerJudgeOnlyAggRobbery > 9)
+subset6 <- subset[!is.na(subset),]
+# Column 4
+EM_s164 <- lm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment +  judicialDistrict + percJudgeSentToEMOnlyAggRobbery + judgeAlreadyUsedEMOnlyAggRobbery, data = df64)
+coeftest(EM_s164, vcov = vcovHC, type = "HC1")
+
+# store the predicted values
+EM164_pred <- EM_s164$fitted.values
+
+# run the stage 2 regression
+EM_s264 <- lm(recidivism ~ EM164_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + spouse + familyVisits + judicialDistrict, data = df62)
+coeftest(EM_s264, vcov = vcovHC)
+
+
+df65 <- subset(subset, offendersPerJudge > 9 & escapees == 0)
+# Column 5 
+EM_s165 <- lm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment +  judicialDistrict + percJudgeSentToEM + judgeAlreadyUsedEM, data = df65)
+coeftest(EM_s165, vcov = vcovHC, type = "HC1")
+
+# store the predicted values
+EM165_pred <- EM_s165$fitted.values
+
+# run the stage 2 regression
+EM_s265 <- lm(recidivism ~ EM165_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, data = df65)
+coeftest(EM_s265, vcov = vcovHC)
+-0.21045
 
 -------------------------------------------------------------------------------------------------------
 # Total crimes by week days 
