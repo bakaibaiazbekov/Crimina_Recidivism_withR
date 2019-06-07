@@ -3,7 +3,7 @@ library(corrplot)
 
 
 # Missing Data
-miss_pct <- map_dbl(subset, function(x) { round((sum(is.na(x)) / length(x)) * 100, 1) })
+miss_pct <- map_dbl(CR, function(x) { round((sum(is.na(x)) / length(x)) * 100, 1) })
 
 miss_pct <- miss_pct[miss_pct > 0]
 
@@ -23,8 +23,29 @@ attach(judge10)
 attach(CR)
 library(stargazer)
 
+# Table 1
+EM_1 <- subset(CR, (!is.na(CR$electronicMonitoring)) & ((CR$electronicMonitoring == "1")))
+EM_11 <- EM_1 %>% select(homicideDummy, attemptedHomicideDummy, sexualOffensesDummy, otherSeriousCrimesDummy, aggravatedRobberyDummy, attemptedAggravatedRobberyDummy, robberyDummy, attemptedRobberyDummy, possessionOfFirearmsDummy, larcenyDummy, otherMinorCrimesDummy)
+describe(EM_11)
+
+EM_0 <- subset(CR, (!is.na(CR$electronicMonitoring)) & ((CR$electronicMonitoring == "0")))
+EM_00 <- EM_0 %>% select(homicideDummy, attemptedHomicideDummy, sexualOffensesDummy, otherSeriousCrimesDummy, aggravatedRobberyDummy, attemptedAggravatedRobberyDummy, robberyDummy, attemptedRobberyDummy, possessionOfFirearmsDummy, larcenyDummy, otherMinorCrimesDummy)
+
+latex(EM_11, title=NULL,
+      file=paste('describe',first.word(expr=attr(EM_11,'descript')),'tex',sep='.'),
+      append=FALSE, size='small', tabular=TRUE, greek=TRUE,
+      spacing=0.7, lspace=c(0,0))
+
 # judge offender > 10 
 judge10 <- subset(CR, offendersPerJudge > 9)
+
+
+# judge offender > 20 
+judge20 <- subset(CR, offendersPerJudge > 19)
+
+# judge offender > 30
+judge30 <- subset(CR, offendersPerJudge > 29)
+
 
 # perform Tabel 2
 EM1 <- lm(electronicMonitoring ~ percJudgeSentToEM + judicialDistrict, data = judge10)
@@ -39,6 +60,9 @@ EM3 <- lm(electronicMonitoring ~ percJudgeSentToEM + mostSeriousCrime + numberPr
 
 coeftest(EM3, vcov = vcovHC, type = "HC1")
 
+# convert age in days to year 
+judge10$age <- judge10$age / 365  
+judge10$age <- round(judge10$age, 0)
 EM4 <- lm(electronicMonitoring ~ percJudgeSentToEM + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment  + judicialDistrict, data = judge10)
 
 coeftest(EM4, vcov = vcovHC, type = "HC1")
@@ -73,7 +97,10 @@ summary(highEM$age)
 
 # Table 4
 # omit NAs in recidivism
-subset <-  judge10[complete.cases(judge10$recidivism), ] 
+subset20 <-  judge20[complete.cases(judge20$recidivism), ] 
+
+subset30 <-  judge30[complete.cases(judge30$recidivism), ] 
+
 attach(subset)
 # column 1
 rec1 <- lm(recidivism ~ electronicMonitoring, data = subset)
@@ -133,7 +160,7 @@ rec4 <- lm(recidivism ~ electronicMonitoring + mostSeriousCrime + age + argentin
 coeftest(rec4, vcov. = vcovHC, type = "HC1")
 # Variance inflation Factor 
 # 1 = not correlated
-# 1 - 5 = moderatelz correlated 
+# 1 - 5 = moderately correlated 
 # 5 > highly correlated 
 rec4 <- vif(lm(recidivism ~ electronicMonitoring + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict))
 
@@ -173,7 +200,7 @@ stargazer(rec1, rec2, rec3, rec4, rec5,
 #subset1 <-  judge10[complete.cases(judge10$recidivism), ] 
 
 # perform the first stage regression
-EM_s1 <- lm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + court, data = subset)
+EM_s1 <- lm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + court, data = subset30)
 
 coeftest(EM_s1, vcov = vcovHC, type = "HC1")
 
@@ -181,39 +208,39 @@ coeftest(EM_s1, vcov = vcovHC, type = "HC1")
 EM1_pred <- EM_s1$fitted.values
 
 # run the stage 2 regression
-EM_s2 <- lm(recidivism ~ EM1_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict)
+EM_s2 <- lm(recidivism ~ EM1_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, data = subset30)
 coeftest(EM_s2, vcov = vcovHC)
 -0.11444 
 # inspect the R^2 of the first stage regression
 summary(EM_s1)$r.squared
 
 # 1 stage column 2
-EM_s12 <- lm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + percJudgeSentToEM, data = subset)
+EM_s12 <- lm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + percJudgeSentToEM, data = subset30)
 coeftest(EM_s12, vcov = vcovHC, type = "HC1")
 
 # store the predicted values
 EM12_pred <- EM_s12$fitted.values
 
 # run the stage 2 regression
-EM_s22 <- lm(recidivism ~ EM12_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict)
+EM_s22 <- lm(recidivism ~ EM12_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, data = subset30)
 coeftest(EM_s22, vcov = vcovHC)
 -0.13841
 
 # 1 stage 
 #column 3
-EM_s13 <- lm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + percJudgeSentToEM + judgeAlreadyUsedEM, data = subset)
+EM_s13 <- lm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + percJudgeSentToEM + judgeAlreadyUsedEM, data = subset30)
 coeftest(EM_s13, vcov = vcovHC, type = "HC1")
 
 # store the predicted values
 EM13_pred <- EM_s13$fitted.values
 
 # run the stage 2 regression
-EM_s23 <- lm(recidivism ~ EM13_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict)
+EM_s23 <- lm(recidivism ~ EM13_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, data = subset30)
 coeftest(EM_s23, vcov = vcovHC)
 -0.15842
 
 # Column 4
-subset_em1 <-subset[!(subset$judicialDistrict == "NECOCHEA"),]
+subset_em1 <-subset30[!(subset30$judicialDistrict == "NECOCHEA"),]
 
 # first stage
 EM_s14 <- glm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + percJudgeSentToEM + judgeAlreadyUsedEM, family = binomial(link = "probit"), data = subset_em1)
@@ -229,14 +256,14 @@ coeftest(EM_s24, vcov = vcovHC)
 -0.17417
 
 # 1 stage column 5
-EM_s15 <- lm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + largeSampleEstimate, data = subset)
+EM_s15 <- lm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, data = subset30)
 coeftest(EM_s15, vcov = vcovHC, type = "HC1")
 
 # store the predicted values
 EM15_pred <- EM_s15$fitted.values
 
 # run the stage 2 regression
-EM_s25 <- lm(recidivism ~ EM13_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict)
+EM_s25 <- lm(recidivism ~ EM13_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, data = subset30)
 coeftest(EM_s25, vcov = vcovHC)
 -0.15842
 -0.96417
@@ -276,15 +303,17 @@ stargazer(EM_s2, EM_s22,EM_s23,EM_s24,EM_s25,
 df61 <- as.data.frame(subset)
 df61 <- df61[!is.na(df61$incomeProfession),]
 
+df61$monthly_income <- df61$incomeProfession / 12 
+df61$monthly_income <- round(df61$monthly_income, 2)
 # 1 stage 
-EM_s161 <- lm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + incomeProfession + percJudgeSentToEM + judgeAlreadyUsedEM, data = df61)
+EM_s161 <- lm(electronicMonitoring ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict + monthly_income + percJudgeSentToEM + judgeAlreadyUsedEM, data = df61)
 coeftest(EM_s161, vcov = vcovHC, type = "HC1")
 
 # store the predicted values
 EM161_pred <- EM_s161$fitted.values
 
 # run the stage 2 regression
-EM_s261 <- lm(recidivism ~ EM161_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + incomeProfession + judicialDistrict, data = df61)
+EM_s261 <- lm(recidivism ~ EM161_pred + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + monthly_income + judicialDistrict, data = df61)
 coeftest(EM_s261, vcov = vcovHC)
 -0.2434
 
@@ -342,6 +371,53 @@ EM_s265 <- lm(recidivism ~ EM165_pred + mostSeriousCrime + age + ageSquared + ar
 coeftest(EM_s265, vcov = vcovHC)
 -0.21045
 
+# gather robust standard errors in a list
+rob_se <- list(sqrt(diag(vcovHC(EM_s261, type = "HC1"))),
+               sqrt(diag(vcovHC(EM_s262, type = "HC1"))),
+               sqrt(diag(vcovHC(EM_s263, type = "HC1"))),
+               sqrt(diag(vcovHC(EM_s265, type = "HC1"))))
+
+# generate table
+stargazer(EM_s261, EM_s262, EM_s263,EM_s265,
+          header = FALSE, 
+          type = "latex",
+          omit.table.layout = "n",
+          digits = 3, 
+          column.labels = c("IVs: percJudgeSentToEM, judgeAlreadyUsedEM", "IVs: percJudgeSentToEM, judgeAlreadyUsedEM", "IVs: percJudgeSentToEM, judgeAlreadyUsedEM", "IVs: percJudgeSentToEM, judgeAlreadyUsedEM" ),
+          dep.var.labels.include = FALSE,
+          dep.var.caption = "Dependent Variable: recidivism",
+          se = rob_se)
+
+
+# Table 7 
+
+# Column 1
+df7<-subset(CR, (!is.na(CR$recidivism)) & ((CR$electronicMonitoring == "1")))
+
+rec71 <- lm(recidivism ~ EMLengthTotalPrisonRatio + mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, data = df7)
+coeftest(rec71, vcov = vcovHC, type = "HC1")
+-0.08673
+
+# Column 2
+rec72 <- lm(recidivism ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, data = df7)
+coeftest(rec72, vcov = vcovHC, type = "HC1")
+
+# Column 3 
+esc73 <- lm(escapees ~ mostSeriousCrime + age + ageSquared + argentine + numberPreviousImprisonments + yearOfImprisonment + judicialDistrict, data = df7)
+coeftest(esc73, vcov = vcovHC, type = "HC1")
+
+# gather robust standard errors in a list
+rob_se <- list(sqrt(diag(vcovHC(rec71, type = "HC1"))),
+               sqrt(diag(vcovHC(rec72, type = "HC1"))),
+               sqrt(diag(vcovHC(esc73, type = "HC1"))))
+
+# generate a LaTeX table using stargazer
+stargazer(rec71, rec72, esc73,
+          se = rob_se,
+          digits = 3,
+          header = F,
+          column.labels = c("(I)", "(II)", "(III)"))
+
 -------------------------------------------------------------------------------------------------------
 # Total crimes by week days 
 # Convert the Date variable to a format that R will recognize:
@@ -376,22 +452,24 @@ ggplot(WeekdayCounts, aes(x=Var1, y=Freq)) + geom_line(aes(group=1))
 ggplot(WeekdayCounts, aes(x=Var1, y=Freq)) + geom_line(aes(group=1)) + xlab("Day of the Week") + ylab("Total Crimes")
 
 # Change our x and y labels:
-ggplot(WeekdayCounts, aes(x=Var1, y=Freq)) + geom_tile(aes(fill = Freq)) + scale_fill_gradient(name = "Total crimes") + theme(axis.title.y = element_blank()) 
+q <- ggplot(WeekdayCounts, aes(x=Var1, y=Freq)) + geom_tile(aes(fill = Freq)) + scale_fill_gradient(name = "Total crimes") + theme(axis.title.y = element_blank() + coord_flip()) 
 
+# q plot
+q + coord_flip()
 -------------------------------------------------------------------------------------
 attach(subset)
-subset1 <- data.frame(electronicMonitoring, recidivism, numberPreviousImprisonments, age, year, homicideDummy, attemptedHomicideDummy, sexualOffensesDummy, otherSeriousCrimesDummy, aggravatedRobberyDummy, attemptedAggravatedRobberyDummy, robberyDummy, attemptedRobberyDummy, possessionOfFirearmsDummy, larcenyDummy, otherMinorCrimesDummy)
-  
-  
+subset1 <- data.frame(electronicMonitoring, recidivism, numberPreviousImprisonments, judgeEverUsedEM, age, familyVisits, escapees,  homicideDummy, attemptedHomicideDummy, sexualOffensesDummy, otherSeriousCrimesDummy, aggravatedRobberyDummy, attemptedAggravatedRobberyDummy, robberyDummy, attemptedRobberyDummy, possessionOfFirearmsDummy, larcenyDummy, otherMinorCrimesDummy)
+subset1$age <- subset1$age / 365  
+subset1$age <- round(subset1$age, 0)  
+# extract year 
+subset1$year <- gsub('([-][0-9]{2}[-][0-9]{2})$', '', subset$entryDate)
+
 # CART Model
 # Split the data
-install.packages("caTools")
 library(caTools)
 
 # Install rpart library
-install.packages("rpart")
 library(rpart)
-install.packages("rpart.plot")
 library(rpart.plot)
 
 set.seed(3000)
@@ -399,23 +477,21 @@ spl = sample.split(subset1$recidivism, SplitRatio = 0.7)
 Train = subset(subset1, spl==TRUE)
 Test = subset(subset1, spl==FALSE)
 
-# extract year 
-subset$year <- gsub('([-][0-9]{2}[-][0-9]{2})$', '', subset$entryDate)
 # CART model
-Tree = rpart(recidivism ~ electronicMonitoring + numberPreviousImprisonments + age + year + homicideDummy + attemptedHomicideDummy + sexualOffensesDummy + otherSeriousCrimesDummy + aggravatedRobberyDummy + attemptedAggravatedRobberyDummy + robberyDummy + attemptedRobberyDummy + possessionOfFirearmsDummy + larcenyDummy + otherMinorCrimesDummy, 
+Tree = rpart(recidivism ~ electronicMonitoring + numberPreviousImprisonments + judgeEverUsedEM + age + year + familyVisits + escapees+ homicideDummy + attemptedHomicideDummy + sexualOffensesDummy + otherSeriousCrimesDummy + aggravatedRobberyDummy + attemptedAggravatedRobberyDummy + robberyDummy + attemptedRobberyDummy + possessionOfFirearmsDummy + larcenyDummy + otherMinorCrimesDummy, 
              data = Train, 
              method="class", 
-             minbucket=15)
+             minbucket=20)
 
 prp(Tree)
 
+rpart.plot(Tree)
 # Make predictions
 PredictCART = predict(Tree, newdata = Test, type = "class")
 table(Test$recidivism, PredictCART)
-(363+6)/(363+3+86+6)
+359 / (359+5+86)
 
 # ROC curve
-install.packages("ROCR")
 library(ROCR)
 
 PredictROC = predict(Tree, newdata = Test)
@@ -425,7 +501,6 @@ pred = prediction(PredictROC[,2], Test$recidivism)
 perf = performance(pred, "tpr", "fpr")
 plot(perf)
 
-install.packages("randomForest")
 library(randomForest)
 
 # Convert outcome to factor
@@ -433,7 +508,7 @@ Train$recidivism = as.factor(Train$recidivism)
 Test$recidivism = as.factor(Test$recidivism)
 
 # Build random forest model
-RF = randomForest(recidivism ~ electronicMonitoring + numberPreviousImprisonments + age + year + homicideDummy + attemptedHomicideDummy + sexualOffensesDummy + otherSeriousCrimesDummy + aggravatedRobberyDummy + attemptedAggravatedRobberyDummy + robberyDummy + attemptedRobberyDummy + possessionOfFirearmsDummy + larcenyDummy + otherMinorCrimesDummy, 
+RF = randomForest(recidivism ~ electronicMonitoring + numberPreviousImprisonments + judgeEverUsedEM +age + year + homicideDummy + attemptedHomicideDummy + sexualOffensesDummy + otherSeriousCrimesDummy + aggravatedRobberyDummy + attemptedAggravatedRobberyDummy + robberyDummy + attemptedRobberyDummy + possessionOfFirearmsDummy + larcenyDummy + otherMinorCrimesDummy, 
              data = Train, 
              ntree = 200, 
              nodesize = 15)
@@ -442,8 +517,95 @@ RF = randomForest(recidivism ~ electronicMonitoring + numberPreviousImprisonment
 # Make predictions
 PredictForest = predict(RF, newdata = Test)
 table(Test$recidivism, PredictForest)
-(364+7)/(364+2+85+7)
+(355 + 9) / (355+9+4+82)
+[1] 0.8088889
 
+# featue importants 
+varImp(RF)
+
+# Install cross-validation packages
+install.packages("caret")
+library(caret)
+install.packages("e1071")
+library(e1071)
+
+# Define cross-validation experiment
+numFolds = trainControl( method = "cv", number = 10 )
+cpGrid = expand.grid( .cp = seq(0.01,0.5,0.01)) 
+
+# Perform the cross validation
+train(recidivism ~ electronicMonitoring + numberPreviousImprisonments + judgeEverUsedEM + age + year + homicideDummy + attemptedHomicideDummy + sexualOffensesDummy + otherSeriousCrimesDummy + aggravatedRobberyDummy + attemptedAggravatedRobberyDummy + robberyDummy + attemptedRobberyDummy + possessionOfFirearmsDummy + larcenyDummy + otherMinorCrimesDummy, data = Train, method = "rpart", trControl = numFolds, tuneGrid = cpGrid )
+
+# Create a new CART model
+TreeCV = rpart(recidivism ~ electronicMonitoring + numberPreviousImprisonments + judgeEverUsedEM + age + year + homicideDummy + attemptedHomicideDummy + sexualOffensesDummy + otherSeriousCrimesDummy + aggravatedRobberyDummy + attemptedAggravatedRobberyDummy + robberyDummy + attemptedRobberyDummy + possessionOfFirearmsDummy + larcenyDummy + otherMinorCrimesDummy, data = Train, method="class", cp = 0.02)
+
+# Make predictions
+PredictCV = predict(TreeCV, newdata = Test, type = "class")
+table(Test$recidivism, PredictCV)
+(354+6)/(354+5+85+6)
+[1] 0.8
+
+--------------------------------------------------------------------------------------------------
+
+# Logistic regression Tree for EM == 1
+subset12 <- EM_1 %>% select(recidivism, numberPreviousImprisonments, age, entryDate,yearOfImprisonment, familyVisits, escapees,homicideDummy, attemptedHomicideDummy, sexualOffensesDummy, otherSeriousCrimesDummy, aggravatedRobberyDummy, attemptedAggravatedRobberyDummy, robberyDummy, attemptedRobberyDummy, possessionOfFirearmsDummy, larcenyDummy, otherMinorCrimesDummy)
+subset12$year <- gsub('([-][0-9]{2}[-][0-9]{2})$', '', subset12$entryDate)
+
+
+# CART Model
+# Split the data
+library(caTools)
+
+# Install rpart library
+library(rpart)
+library(rpart.plot)
+
+set.seed(3000)
+spl1 = sample.split(subset12$recidivism, SplitRatio = 0.7)
+Train = subset(subset12, spl==TRUE)
+Test = subset(subset12, spl==FALSE)
+
+# CART model
+Tree = rpart(recidivism ~  numberPreviousImprisonments + age + year + familyVisits + escapees+ homicideDummy + attemptedHomicideDummy + sexualOffensesDummy + otherSeriousCrimesDummy + aggravatedRobberyDummy + attemptedAggravatedRobberyDummy + robberyDummy + attemptedRobberyDummy + possessionOfFirearmsDummy + larcenyDummy + otherMinorCrimesDummy, 
+             data = Train, 
+             method="class", 
+             minbucket=20)
+
+prp(Tree)
+
+# Make predictions
+PredictCART = predict(Tree, newdata = Test, type = "class")
+table(Test$recidivism, PredictCART)
+359 / (359+5+86)
+
+# ROC curve
+library(ROCR)
+
+PredictROC = predict(Tree, newdata = Test)
+PredictROC
+
+pred = prediction(PredictROC[,2], Test$recidivism)
+perf = performance(pred, "tpr", "fpr")
+plot(perf)
+
+library(randomForest)
+
+# Convert outcome to factor
+Train$recidivism = as.factor(Train$recidivism)
+Test$recidivism = as.factor(Test$recidivism)
+
+# Build random forest model
+RF = randomForest(recidivism ~ electronicMonitoring + numberPreviousImprisonments + age + year + homicideDummy + attemptedHomicideDummy + sexualOffensesDummy + otherSeriousCrimesDummy + aggravatedRobberyDummy + attemptedAggravatedRobberyDummy + robberyDummy + attemptedRobberyDummy + possessionOfFirearmsDummy + larcenyDummy + otherMinorCrimesDummy, 
+                  data = Train, 
+                  ntree = 200, 
+                  nodesize = 15)
+
+
+# Make predictions
+PredictForest = predict(RF, newdata = Test)
+table(Test$recidivism, PredictForest)
+(357 + 4) / (357+4+2+87)
+[1] 0.8022222
 
 # Install cross-validation packages
 install.packages("caret")
@@ -464,11 +626,6 @@ TreeCV = rpart(recidivism ~ electronicMonitoring + numberPreviousImprisonments +
 # Make predictions
 PredictCV = predict(TreeCV, newdata = Test, type = "class")
 table(Test$recidivism, PredictCV)
-(363+6)/(363+3+86+6)
-
-#
-
-
 
 mean <- aggregate(subset, list(subset$recidivism), mean)
 
